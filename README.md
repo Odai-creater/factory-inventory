@@ -1,12 +1,13 @@
-# Factory Inventory Service (On-Premise)
+# Factory Inventory Service (AWS Lambda)
 
-A factory parts inventory management service currently running on-premise.
-This service will be migrated to AWS Lambda as part of the Devin demo.
+A factory parts inventory management service running on AWS Lambda + API Gateway + DynamoDB.
 
-## Overview
+## Architecture
 
-This service manages parts inventory across multiple factory locations.
-It tracks stock levels, triggers low-stock alerts, and handles inter-factory part transfers.
+- **AWS Lambda** — Serverless compute (Node.js 20.x)
+- **API Gateway** — REST API with regional endpoint
+- **DynamoDB** — Persistent storage for inventory and transfer records
+- **Region** — ap-northeast-1 (Tokyo)
 
 ## Endpoints
 
@@ -18,11 +19,46 @@ It tracks stock levels, triggers low-stock alerts, and handles inter-factory par
 | POST | `/transfer` | Transfer parts between factories |
 | GET | `/transfers` | Get transfer history |
 
+## DynamoDB Tables
+
+### FactoryInventory
+- **Partition Key**: `partId` (String)
+- **Sort Key**: `factoryId` (String)
+- **GSI**: `factoryId-index` (partition key: `factoryId`)
+
+### FactoryTransfers
+- **Partition Key**: `transferId` (String)
+- **GSI**: `partId-index` (partition key: `partId`)
+
+## Deployment
+
+### Prerequisites
+- AWS CLI configured with appropriate credentials
+- Target region: `ap-northeast-1`
+
+### Deploy
+```bash
+chmod +x deploy.sh
+./deploy.sh
+```
+
+The script will:
+1. Create DynamoDB tables (FactoryInventory, FactoryTransfers)
+2. Create an IAM role with least-privilege permissions
+3. Package and deploy the Lambda function
+4. Create and configure API Gateway with all routes
+5. Output the API URL
+
 ## Request Examples
+
+### Health check
+```bash
+curl https://<api-id>.execute-api.ap-northeast-1.amazonaws.com/prod/
+```
 
 ### Register a part
 ```bash
-curl -X POST http://localhost:3000/inventory \
+curl -X POST https://<api-id>.execute-api.ap-northeast-1.amazonaws.com/prod/inventory \
   -H "Content-Type: application/json" \
   -d '{
     "partId": "PART-ENG-001",
@@ -36,12 +72,12 @@ curl -X POST http://localhost:3000/inventory \
 
 ### Get low stock items at a factory
 ```bash
-curl "http://localhost:3000/inventory?factoryId=FACTORY-TAKAOKA&lowStock=true"
+curl "https://<api-id>.execute-api.ap-northeast-1.amazonaws.com/prod/inventory?factoryId=FACTORY-TAKAOKA&lowStock=true"
 ```
 
 ### Transfer parts between factories
 ```bash
-curl -X POST http://localhost:3000/transfer \
+curl -X POST https://<api-id>.execute-api.ap-northeast-1.amazonaws.com/prod/transfer \
   -H "Content-Type: application/json" \
   -d '{
     "partId": "PART-ENG-001",
@@ -53,21 +89,10 @@ curl -X POST http://localhost:3000/transfer \
 
 ### Get transfer history
 ```bash
-curl "http://localhost:3000/transfers?factoryId=FACTORY-TAKAOKA"
+curl "https://<api-id>.execute-api.ap-northeast-1.amazonaws.com/prod/transfers?factoryId=FACTORY-TAKAOKA"
 ```
 
-## Current Issues (On-Premise)
-
-- Server must run 24/7 across all factory locations — high energy and maintenance cost
-- No real-time visibility across factories — data is siloed per location
-- Cannot handle sudden spikes in transfer requests (e.g. emergency line restocking)
-- Single point of failure — server outage means inventory data is inaccessible
-- Inventory data is lost on server restart (in-memory storage)
-- Manual synchronization required between factory servers
-
-## Migration Goal
-
-Migrate to AWS Lambda + DynamoDB to achieve:
+## Benefits Over On-Premise
 
 - **Unified visibility**: All factories share a single real-time inventory view
 - **Pay-per-use**: Zero cost during off-shift hours
@@ -75,3 +100,14 @@ Migrate to AWS Lambda + DynamoDB to achieve:
 - **Durability**: Inventory data persisted in DynamoDB — never lost
 - **High availability**: 99.95% SLA across all factory locations
 - **Zero ops burden**: No per-factory server management required
+
+## Project Structure
+
+```
+├── app.js              # Original Express app (kept for reference)
+├── lambda/
+│   └── index.mjs       # AWS Lambda handler
+├── deploy.sh           # Deployment script
+├── package.json        # Project metadata
+└── README.md           # This file
+```
