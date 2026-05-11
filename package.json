@@ -1,0 +1,12 @@
+{
+  "name": "factory-inventory-service",
+  "version": "1.0.0",
+  "description": "Factory parts inventory management service (on-premise)",
+  "main": "app.js",
+  "scripts": {
+    "start": "node -e \"const app = require('./app'); app.listen(3000, () => console.log('Running locally on port 3000'))\""
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
